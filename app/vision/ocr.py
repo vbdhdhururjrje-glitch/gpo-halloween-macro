@@ -173,7 +173,12 @@ class OCRService:
             (image.width * 2, image.height * 2),
             Image.Resampling.LANCZOS,
         )
-        primary = recognize(enhanced, "--oem 3 --psm 7")
+        primary_config, fallback_config = (
+            ("--oem 3 --psm 6", "--oem 3 --psm 7")
+            if image.height * 5 >= image.width
+            else ("--oem 3 --psm 7", "--oem 3 --psm 6")
+        )
+        primary = recognize(enhanced, primary_config)
         if primary[1] >= OCR_ACTIONABLE_CONFIDENCE_THRESHOLD and (
             OCRService.extract_cooldown(primary[0]) is not None
             or OCRService.extract_candy_events(primary[0])
@@ -181,7 +186,7 @@ class OCRService:
         ):
             return primary
 
-        fallback = recognize(enhanced, "--oem 3 --psm 6")
+        fallback = recognize(enhanced, fallback_config)
         return max((primary, fallback), key=lambda sample: sample[1])
 
     @staticmethod
@@ -400,6 +405,7 @@ class OCRWorker(QThread):
     def run(self):
         try:
             samples = []
+            cooldown_samples = []
             for frame in range(OCR_FRAME_COUNT):
                 if self.isInterruptionRequested():
                     return
@@ -410,6 +416,11 @@ class OCRWorker(QThread):
                 if self.isInterruptionRequested():
                     return
                 samples.append(sample)
+                if (
+                    sample[1] >= OCR_ACTIONABLE_CONFIDENCE_THRESHOLD
+                    and OCRService.extract_cooldown(sample[0]) is not None
+                ):
+                    cooldown_samples.append(sample)
                 if (
                     sample[1] >= OCR_CONFIDENCE_THRESHOLD
                     and OCRService.extract_candy_events(sample[0])
@@ -452,15 +463,9 @@ class OCRWorker(QThread):
                 return
             result = OCRService.resolve_stable_samples(samples)
             if not result[3]:
-                visited_samples = [
-                    sample
-                    for sample in samples
-                    if sample[1] >= OCR_ACTIONABLE_CONFIDENCE_THRESHOLD
-                    and VISITED_HOUSE_COOLDOWN_PATTERN.search(sample[0] or "")
-                ]
-                if visited_samples:
+                if cooldown_samples:
                     result = OCRService.resolve_stable_samples(
-                        [max(visited_samples, key=lambda sample: sample[1])],
+                        [max(cooldown_samples, key=lambda sample: sample[1])],
                         required_matches=1,
                         confidence_threshold=OCR_ACTIONABLE_CONFIDENCE_THRESHOLD,
                     )

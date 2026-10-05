@@ -511,7 +511,7 @@ class OCRServiceTests(unittest.TestCase):
 
         self.assertEqual(result, ("", 0.0))
 
-    def test_uses_block_mode_as_single_fallback_when_line_mode_fails(self):
+    def test_tall_region_uses_block_mode_before_line_mode_fallback(self):
         primary = {"text": ["_", "Oe"], "conf": ["10", "12"]}
         fallback = {
             "text": ["You", "already", "visited", "this", "house", "Come", "back", "in", "147"],
@@ -537,7 +537,7 @@ class OCRServiceTests(unittest.TestCase):
         self.assertEqual(confidence, 90.0)
         self.assertEqual(
             [call.kwargs["config"] for call in image_to_data.call_args_list],
-            ["--oem 3 --psm 7", "--oem 3 --psm 6"],
+            ["--oem 3 --psm 6", "--oem 3 --psm 7"],
         )
 
     def test_accepts_actionable_primary_frame_at_actionable_confidence(self):
@@ -599,6 +599,35 @@ class OCRServiceTests(unittest.TestCase):
         )
         self.assertEqual(image_to_data.call_args.args[0].size, (640, 100))
 
+    def test_tall_ocr_region_tries_block_segmentation_first(self):
+        text = "You already visited this house! Come back in 158s"
+        words = text.split()
+        recognized_message = {
+            "text": words,
+            "conf": ["72"] * len(words),
+            "block_num": [1] * len(words),
+            "par_num": [1] * len(words),
+            "line_num": [1] * len(words),
+        }
+        with patch(
+            "app.vision.ocr.ScreenCapture.capture_region",
+            return_value=Image.new("RGB", (517, 116), "black"),
+        ), patch(
+            "pytesseract.image_to_data",
+            return_value=recognized_message,
+        ) as image_to_data:
+            text, confidence = OCRService.read_region_frame(
+                {"x": 0, "y": 0, "width": 517, "height": 116}
+            )
+
+        self.assertEqual(OCRService.extract_cooldown(text), 158)
+        self.assertEqual(confidence, 72.0)
+        image_to_data.assert_called_once()
+        self.assertEqual(
+            image_to_data.call_args.kwargs["config"],
+            "--oem 3 --psm 6",
+        )
+
     def test_worker_fast_accepts_clear_door_message_from_first_frame(self):
         text = "You already visited this house! Come back in 119"
         worker = OCRWorker({"x": 0, "y": 0, "width": 592, "height": 63})
@@ -652,6 +681,29 @@ class OCRServiceTests(unittest.TestCase):
 
         self.assertEqual(read_frame.call_count, 3)
         self.assertEqual(results[0][1:], (119, None, True))
+
+    def test_worker_accepts_clear_cooldown_from_later_frame(self):
+        text = "You can Trick or Treat again in 163 seconds"
+        worker = OCRWorker({"x": 0, "y": 0, "width": 517, "height": 116})
+        results = []
+        worker.recognized.connect(lambda *result: results.append(result))
+
+        with patch.object(
+            OCRService,
+            "read_region_frame",
+            side_effect=[
+                ("SAFE ZONE PROTECTED", 92.0, []),
+                (text, 42.0, []),
+                ("", 0.0, []),
+            ],
+        ) as read_frame, patch("app.vision.ocr.time.sleep"):
+            worker.run()
+
+        self.assertEqual(read_frame.call_count, 3)
+        self.assertEqual(
+            results,
+            [("You can Trick or Treat again in 163 seconds", 163, None, True)],
+        )
 
     def test_worker_accepts_brief_treat_or_trick_message_from_one_clear_frame(self):
         messages = (

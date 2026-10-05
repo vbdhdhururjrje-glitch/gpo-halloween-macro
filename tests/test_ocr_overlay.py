@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, QPoint, Qt
 from PySide6.QtGui import QCloseEvent, QKeySequence
 from PySide6.QtTest import QTest
 from PySide6.QtCore import QObject, Signal
@@ -17,6 +17,7 @@ from app.gui.ocr_region_overlay import OCRRegionOverlay
 from app.gui.translations import RU_TRANSLATIONS
 from app.route.route import Route
 from app.route.route_point import RoutePoint
+from app.vision.ocr import OCRService, OCRWorker
 
 
 class FakePlaybackWorker(QObject):
@@ -829,6 +830,25 @@ class MainWindowOCRLifecycleTests(unittest.TestCase):
 
         worker.requestInterruption.assert_called_once_with()
         self.assertEqual(self.window._ocr_worker_generation, 1)
+
+    def test_completed_ocr_workers_are_released_between_scans(self):
+        self.window.state = "RUNNING"
+        self.window._door_scan_active = True
+
+        with patch.object(
+            OCRService,
+            "read_region_frame",
+            return_value=("Unrelated screen text", 90.0, []),
+        ):
+            for _ in range(3):
+                self.window._start_ocr_worker(monitoring=True)
+                worker = self.window.ocr_worker
+                self.assertTrue(worker.wait(5000))
+                QApplication.processEvents()
+                QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+                QApplication.processEvents()
+
+        self.assertEqual(self.window.findChildren(OCRWorker), [])
 
     def test_completed_route_restarts_after_configured_delay(self):
         route = self.window.route_manager.route

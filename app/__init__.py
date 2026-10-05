@@ -1,0 +1,1 @@
+"""GPO Halloween Macro application."""

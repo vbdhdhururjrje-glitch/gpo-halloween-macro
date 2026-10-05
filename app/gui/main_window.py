@@ -875,6 +875,7 @@ class MainWindow(QMainWindow):
         )
         worker.failed.connect(self._ocr_failed)
         worker.finished.connect(lambda current=worker: self._ocr_finished(current))
+        worker.finished.connect(worker.deleteLater)
         self.ocr_run_button.setEnabled(False)
         self.ocr_status_label.setText(
             self._tr(

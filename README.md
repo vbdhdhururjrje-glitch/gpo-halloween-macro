@@ -29,7 +29,7 @@ Expand-Archive -LiteralPath $zip -DestinationPath $folder -Force
 
 Если Windows блокирует PowerShell-скрипт, сначала прочитайте `Install-GPOHalloweenMacro.ps1` и соблюдайте правила выполнения скриптов на вашем компьютере. Не меняйте системную политику выполнения ради этого приложения.
 
-Установщик скачивает последнюю сборку, устанавливает её и запускает. В публичном ZIP находятся авторские настройки и маршрут. Установщик импортирует их только в новый профиль, если нет ни `settings.json`, ни стандартного `route.json`; существующие данные не перезаписываются. Настройки OCR-области сделаны под экран автора и могут требовать изменения на другом компьютере.
+Установщик использует архив, указанный через `-ArchivePath`; если параметр не задан, он сам скачивает последний релиз. Затем он устанавливает программу и запускает её. В публичном ZIP находятся авторские настройки и маршрут. Установщик импортирует их только в новый профиль, если нет ни `settings.json`, ни стандартного `route.json`; существующие данные не перезаписываются. Настройки OCR-области сделаны под экран автора и могут требовать изменения на другом компьютере.
 
 Можно также распаковать ZIP и запустить `GPO Halloween Macro.exe` непосредственно из папки. Не переносите один EXE отдельно: рядом с ним необходима папка `_internal`. Python для готовой сборки не требуется. Для OCR отдельно установите Tesseract.
 
@@ -83,7 +83,7 @@ Python-библиотека `pytesseract` — это только связующ
 | F10 | Начать запись |
 | F12 | Аварийная остановка |
 
-Горячие клавиши и параметры можно изменить в **Settings**.
+В ZIP релиза включены личные настройки автора: маркер двери назначен на F2. Для чистой установки стандартное значение — F9. Горячие клавиши и параметры можно изменить в **Settings**.
 
 #### Настройки, маршрут и приватность
 
@@ -148,7 +148,7 @@ Expand-Archive -LiteralPath $zip -DestinationPath $folder -Force
 
 If Windows blocks the PowerShell script, inspect `Install-GPOHalloweenMacro.ps1` first and follow your computer's script execution policy. Do not change the machine-wide policy for this application.
 
-The installer downloads the latest build, installs it, and launches it. The public ZIP contains the author's settings and route. They are imported only into a fresh profile with neither `settings.json` nor the default `route.json`; existing user data is not overwritten. The OCR region was configured for the author's display and may need adjustment on another computer.
+The installer uses the archive passed through `-ArchivePath`; when that parameter is omitted, it downloads the latest release itself. It then installs and launches the app. The public ZIP contains the author's settings and route. They are imported only into a fresh profile with neither `settings.json` nor the default `route.json`; existing user data is not overwritten. The OCR region was configured for the author's display and may need adjustment on another computer.
 
 You may also extract the ZIP and run `GPO Halloween Macro.exe` directly from its folder. Do not move the EXE by itself; the adjacent `_internal` directory is required. Python is not required for the packaged build. Tesseract must be installed separately for OCR.
 
@@ -202,7 +202,7 @@ Use **Load route** to open an existing route. Starting a new recording replaces 
 | F10 | Start recording |
 | F12 | Emergency stop |
 
-Hotkeys and application options can be changed in **Settings**.
+The release ZIP contains the author's personal settings, where the door marker is F2. A clean installation uses F9 by default. Hotkeys and application options can be changed in **Settings**.
 
 #### Settings, routes, and privacy
 
